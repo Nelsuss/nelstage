@@ -737,7 +737,7 @@ function makeChart(B, diff) {
   }
 
   const out = [], laneT = [-9, -9, -9, -9, -9, -9], busy = [-9, -9], handT = [-9, -9];
-  const jack = H ? 0.21 : 0.32, alt = 0.165, one = H ? 0.165 : 0.3;
+  const jack = H ? 0.21 : 0.32, alt = 0.165, one = H ? 0.165 : 0.3, rest = H ? 0.17 : 0.26; // rest: recovery a hand needs after releasing a hold
   let pl = 2 + ((R() * 2) | 0), pm = null, lastT = -9, lastHand = -1;
   const pickLane = (hands, t, tg, avoid) => {
     let best = -1, bs = 1e9;
@@ -763,13 +763,13 @@ function makeChart(B, diff) {
     const lane = pickLane(hands, t, tg, pl);
     if (lane < 0) continue;
     const h = lane < 3 ? 0 : 1, n = { t, lane, type: c.type };
-    if (c.type === 'hold') { n.t2 = B.T(c.end); busy[h] = n.t2; laneT[lane] = n.t2; handT[h] = n.t2; } else { laneT[lane] = t; handT[h] = t; }
+    if (c.type === 'hold') { n.t2 = B.T(c.end); busy[h] = n.t2 + rest; laneT[lane] = n.t2; handT[h] = n.t2; } else { laneT[lane] = t; handT[h] = t; }
     out.push(n);
     if (c.dbl) {
       const l2 = pickLane([1 - h], t, 5 - lane, -1);
       if (l2 >= 0) {
         const p = { t, lane: l2, type: 'tap' };
-        if (c.type === 'hold' && H && R() < 0.4) { p.type = 'hold'; p.t2 = n.t2; busy[1 - h] = p.t2; laneT[l2] = p.t2; handT[1 - h] = p.t2; } else { laneT[l2] = t; handT[1 - h] = t; }
+        if (c.type === 'hold' && H && R() < 0.4) { p.type = 'hold'; p.t2 = n.t2; busy[1 - h] = p.t2 + rest; laneT[l2] = p.t2; handT[1 - h] = p.t2; } else { laneT[l2] = t; handT[1 - h] = t; }
         out.push(p);
       }
     }
@@ -1521,6 +1521,10 @@ function gDown(id, x, y, ts, kb) {
     if (r.type === 'roll' && !r.fin && t >= r.t - 0.12 && t <= r.t2 + 0.1 && fl >= r.lane - 0.9 && fl <= r.lane + r.w + 0.9) { rollTap(r); return; }
   }
   const n = findNote(fl, t);
+  if (n && Math.abs(t - n.t) > JW[1]) for (let i = Math.max(0, G.head - 3); i < G.notes.length; i++) {
+    const r = G.notes[i]; if (r.t > t) break;
+    if (r.type === 'roll' && t <= r.t2 + 0.2 && fl >= r.lane - 0.9 && fl <= r.lane + r.w + 0.9) return;
+  }
   if (n) {
     if (n.type === 'flick' && !kb) { tc.flick = n; return; }
     const dt = t - n.t; judge(n, judgeOf(dt), dt);
@@ -1555,7 +1559,7 @@ function gUp(id, ts) {
   const h = tc.hold;
   if (h && h.holding && h.tj < 0) {
     h.holding = false;
-    if (t >= h.t2 - JW[2]) { const dt = t - h.t2; judge(h, dt >= -JW[0] ? 0 : dt >= -JW[1] ? 1 : 2, dt, true); }
+    if (t >= h.t2 - 0.16) { const dt = t - h.t2; judge(h, dt >= -0.065 ? 0 : 1, dt, true); }
     else judge(h, 4, 0, true);
     h.fin = true;
   }
